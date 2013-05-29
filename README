@@ -1,0 +1,51 @@
+INFO
+	randcp -- program that randomly copying files from one directory to another
+
+LICENSE
+	DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
+	        Version 2, December 2004
+
+	Copyright (C) 2013 Victor Hackeridze <bruteforce@sigil.tk>
+
+	Everyone is permitted to copy and distribute verbatim or modified
+	copies of this license document, and changing it is allowed as long
+	as the name is changed.
+
+	DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
+	TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+
+	0. You just DO WHAT THE FUCK YOU WANT TO.
+
+COMPILE
+	$ qmake
+	$ make
+
+RUN
+	$ ./randcp
+
+INSTALL
+	$ sudo mv randcp /usr/bin
+	or
+	# mv randcp /usr/bin
+
+USAGE
+	From help(randcp -h):
+	Usage:
+		rancp -f FROM -t TO
+	Options:
+		-h		Print this help.
+		-f DIR		Set the FROM directory.
+		-t DIR		Set the TO directory.
+		-e EXT		Copy only files with EXT extension.
+		-v		Print verbose info.
+		-r		Copy files recursively.
+EXAMPLES
+	Command:
+	$ randcp -r -v -f ~/music -t /mnt/mp3player -e mp3
+	will randomly copy all mp3 files from ~/music and
+	all directories included to /mnt/mp3player
+	with verbose output.
+
+TODO
+	Copy only files that no older than TIME by -o key.
+	
