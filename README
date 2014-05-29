@@ -39,6 +39,7 @@ USAGE
 		-e EXT		Copy only files with EXT extension.
 		-v		Print verbose info.
 		-r		Copy files recursively.
+		-c NUM		Set number of threads. It uses OpenMP.
 EXAMPLES
 	Command:
 	$ randcp -r -v -f ~/music -t /mnt/mp3player -e mp3
