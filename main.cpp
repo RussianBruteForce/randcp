@@ -1,4 +1,4 @@
-/******************* randcp ********************
+﻿/******************* randcp ********************
  * DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
  *         Version 2, December 2004
  *
@@ -18,11 +18,10 @@
 #include <QString>
 #include <QDir>
 #include <QFile>
-//#include <QDate>
 #include <QTime>
-//#include <QDateTime>
 #include <unistd.h>
 #include <iostream>
+#include <omp.h>
 //#include <QDebug>
 
 QStringList filesToCopy;
@@ -30,7 +29,7 @@ QStringList nameFilters;
 QDir fromDir, toDir;
 bool recursively = false;
 bool verbose = false;
-//QDateTime noOlderTime;
+bool multithread = false;
 
 int randomize(int Min, int Max)
 {
@@ -43,6 +42,11 @@ int randomize(int Min, int Max)
 		Max = Temp;
 	}
 	return ((qrand()%(Max-Min+1))+Min);
+}
+
+QString takeRandomItem(QStringList &list)
+{
+	return list.takeAt(randomize(0,list.size()-1));
 }
 
 void recAppending() {
@@ -65,56 +69,6 @@ void recAppending() {
 	}
 }
 
-//QDateTime parseDateTimeFormString(QString string)
-//{
-//	int d, h, m, s = 0;
-//	for (int i = 0; i < string.size(); i++) {
-//		QChar c = string.at(i);
-//		if (!c.isLower())
-//			continue;
-//		switch ((int)c.toLatin1()) {
-//		case 'd':
-//			d = (int)string.at(i-1).toLatin1() - 48;
-//			d += (
-//			     (int)string.at(i-2).toLatin1()
-//			     - 48)
-//			     * 10;
-//			break;
-//		case 'h':
-//			h = (int)string.at(i-1).toLatin1() - 48;
-//			h += (
-//			     (int)string.at(i-2).toLatin1()
-//			     - 48)
-//			     * 10;
-//			break;
-//		case 'm':
-//			m = (int)string.at(i-1).toLatin1() - 48;
-//			m += (
-//			     (int)string.at(i-2).toLatin1()
-//			     - 48)
-//			     * 10;
-//			break;
-//		case 's':
-//			s = (int)string.at(i-1).toLatin1() - 48;
-//			s += (
-//			     (int)string.at(i-2).toLatin1()
-//			     - 48)
-//			     * 10;
-//			break;
-//		default:
-//			break;
-//		}
-//	}
-//	QTime time = QTime::currentTime();
-//	time = time - QTime(h, m, s);
-//	QDate date = QDate::currentDate();
-
-//	qDebug() << date << time;
-//	return QDateTime(QDate(0, 0, d),
-//			 QTime(h, m, s),
-//			 Qt::LocalTime);
-//}
-
 void printHelp()
 {
 	std::cout << QTranslator::tr("randcp by Victor <BruteForce> Hackeridze").toStdString() << '\n' <<
@@ -127,10 +81,10 @@ void printHelp()
 		     QTranslator::tr("\t-f DIR\t\tSet the FROM directory.").toStdString() << '\n' <<
 		     QTranslator::tr("\t-t DIR\t\tSet the TO directory.").toStdString() << '\n' <<
 		     QTranslator::tr("\t-e EXT\t\tCopy only files with EXT extension.").toStdString() << '\n' <<
-//		     QTranslator::tr("\t-o [##d##h##m##s]\tCopy only files which no older than TIME.").toStdString() << '\n' <<
 		     QTranslator::tr("\t-v\t\tPrint verbose info.").toStdString() << '\n' <<
-		     QTranslator::tr("\t-r\t\tCopy files recursively.").toStdString() << '\n';
-	_exit(0);
+		     QTranslator::tr("\t-r\t\tCopy files recursively.").toStdString() << '\n' <<
+		     QTranslator::tr("\t-c\t\tSet number of threads. (WARNING: info otput will be broken.)").toStdString() << '\n';
+	exit(0);
 }
 
 void printVerbose(QString from, QString to)
@@ -152,9 +106,10 @@ void printDebugInfo(QString fileName, QString errorString)
 
 int main(int argc, char *argv[])
 {
+	omp_set_dynamic(1);
 	QString toDirString, fromDirString, extension;
-	int c;
-	while ((c = getopt(argc, argv, "hrvt:f:e:o:")) != -1)
+	int c, x;
+	while ((c = getopt(argc, argv, "hrvt:f:e:o:c:")) != -1)
 		switch (c)
 		{
 		case 'h':
@@ -175,10 +130,17 @@ int main(int argc, char *argv[])
 		case 'e':
 			extension.append(optarg);
 			break;
-//		case 'o':
-//			noOlderTime = parseDateTimeFormString(optarg);
-//			qDebug() << noOlderTime;
-//			break;
+		case 'c':
+			x = QString(optarg).toInt();
+			if (x < 1 || x > 100) {
+				std::cerr << "Option -c should be between 1 and 100\n";
+				return 1;
+			} else {
+				multithread = true;
+				omp_set_dynamic(0);
+				omp_set_num_threads(x);
+			}
+			break;
 		case '?':
 			if (optopt == 'c')
 				std::cerr << "Option " << optopt << " requires an argument.\n";
@@ -186,7 +148,7 @@ int main(int argc, char *argv[])
 				std::cerr << "Unknown option " << optopt << ".\n";
 			else
 				std::cerr << "Unknown option character " << optopt << ".\n";
-				return 1;
+			return 1;
 		default:
 			abort();
 	}
@@ -211,11 +173,12 @@ int main(int argc, char *argv[])
 	recAppending();
 
 	int filesInList = filesToCopy.size();
-	int counter = 0;
-	QTime now = QTime::currentTime();
-	qsrand(now.msec());
-	while (!filesToCopy.isEmpty()) {
-		QString s = filesToCopy.takeAt(randomize(0,filesToCopy.size()-1));
+	int counter = 0, i = 0;
+	qsrand(QTime(0,0,0).msecsTo(QTime::currentTime()));
+
+#pragma omp parallel for private(i) shared(filesToCopy,counter) if(multithread == true)
+	for (i = 0; i < filesInList; i++) {
+		QString s = takeRandomItem(filesToCopy);
 		QFile f(s);
 		QFileInfo fInfo(f);
 		std::cout << ++counter << '/' << filesInList << '\t' <<

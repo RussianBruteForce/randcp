@@ -9,8 +9,11 @@ QT       += core
 QT       -= gui
 
 TARGET = randcp
-CONFIG   += console
+CONFIG   += console c++11
 CONFIG   -= app_bundle
+QMAKE_LIBS += -lgomp -lpthread
+QMAKE_CXXFLAGS += -fopenmp -D_GLIBCXX_PARALLEL
+LIBS += -lgomp -lpthread
 
 TEMPLATE = app
 
